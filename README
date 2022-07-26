@@ -1,0 +1,24 @@
+This project maintains patch used to trace function call.
+There are two methods to get function call flow.
+
+1. use main.py which traverse all source code and add enter
+   and exit function in each C routines.
+2. Use compile option -finstrument-functions, compiler will
+   help ingerate provided enter and exit APIs into final binary.
+   The caller and callee can be print once it's enabled.
+
+   For cnss patch, introduce a common file for profile function,
+   since module name can't be same with source file if there are
+   multiple source files, so rename some files.
+
+   cnss_nl.c --> cnss_n.c
+   cnss_prealloc.c --> cnss_prealloc1.c
+   cnss_utils.c --> cnss_utils1.c
+
+  Todo
+   1. now for simple call flow, profile_fun can query and print
+      function name directly, but once there are many calls, it
+      will affect the performance and get CPU stuck.
+
+      Next same called and caller into filesystem and use script
+      to decode it.

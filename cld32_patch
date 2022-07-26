@@ -1,0 +1,69 @@
+diff --git a/qcacld-3.0/Kbuild b/qcacld-3.0/Kbuild
+index 76bc5f8..e8e6c6e 100755
+--- a/qcacld-3.0/Kbuild
++++ b/qcacld-3.0/Kbuild
+@@ -4538,6 +4538,7 @@ CMN_IDS = $(shell cd "$(WLAN_COMMON_INC)" && \
+ BUILD_TAG = "cld:$(CLD_IDS); cmn:$(CMN_IDS); dev:$(DEVNAME)"
+ ccflags-y += -DBUILD_TAG=\"$(BUILD_TAG)\"
+ endif
++ccflags-y += -finstrument-functions
+ 
+ # Module information used by KBuild framework
+ obj-$(CONFIG_QCA_CLD_WLAN) += $(MODNAME).o
+diff --git a/qcacld-3.0/core/hdd/inc/wlan_hdd_main.h b/qcacld-3.0/core/hdd/inc/wlan_hdd_main.h
+index 9cd547f..090ff35 100755
+--- a/qcacld-3.0/core/hdd/inc/wlan_hdd_main.h
++++ b/qcacld-3.0/core/hdd/inc/wlan_hdd_main.h
+@@ -5437,5 +5437,7 @@ hdd_is_dynamic_set_mac_addr_allowed(struct hdd_adapter *adapter)
+  * Return: True if the data stall event is enabled
+  */
+ bool hdd_is_data_stall_event_enabled(uint32_t evt);
++void __cyg_profile_func_enter(void *called, void *caller);
++void __cyg_profile_func_exit(void *called, void *caller);
+ 
+ #endif /* end #if !defined(WLAN_HDD_MAIN_H) */
+diff --git a/qcacld-3.0/core/hdd/src/wlan_hdd_main.c b/qcacld-3.0/core/hdd/src/wlan_hdd_main.c
+index df97a1f..4e50bb1 100755
+--- a/qcacld-3.0/core/hdd/src/wlan_hdd_main.c
++++ b/qcacld-3.0/core/hdd/src/wlan_hdd_main.c
+@@ -439,6 +439,40 @@ struct sock *cesium_nl_srv_sock;
+ static void wlan_hdd_auto_shutdown_cb(void);
+ #endif
+ 
++static int start = 0;
++ulong track = 0;
++
++#include <linux/kallsyms.h>
++__attribute__((no_instrument_function))
++void __cyg_profile_func_enter(void *called, void *caller) {
++	char symname[128];
++
++	if (start)
++		return;
++	sprint_symbol(symname, (ulong)called);
++	if (strstr(symname, "hdd_soc_probe")) {
++		printk("======ENTER called symname %s\n", symname);
++		track = (ulong)called;
++		start = 1;
++	}
++	//sprint_symbol(symname, (ulong)caller);
++	//if (strstr(symname, "hdd_soc_probe"))
++	//	printk("======caller symname %s\n", symname);
++}
++
++__attribute__((no_instrument_function))
++void __cyg_profile_func_exit(void *called, void *caller) {
++	char symname[128];
++	//printk("======EXIT: %p, from %p\n", called, caller);
++	if (start) {
++		if ((ulong)called == track) {
++			sprint_symbol(symname, (ulong)called);
++			printk("======EXIT called symname %s\n", symname);
++			start = 0;
++		}
++	}
++}
++
+ bool hdd_adapter_is_ap(struct hdd_adapter *adapter)
+ {
+ 	if (!adapter) {
